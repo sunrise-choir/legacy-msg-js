@@ -12,12 +12,32 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const TextDecoder = require('util').TextDecoder;
 
 const async = require('async');
 
 function decode(str) {
   return JSON.parse(str, (key, value) => {
-    if (value === Infinity || value === -Infinity || value === -0.0) {
+    if (typeof value === "string") {
+      let prev_is_high_surrogate = false;
+      for (let code_point_str of value) {
+        const code_point = code_point_str.codePointAt(0);
+        if (code_point >= 0xD800 && code_point <= 0xDBFF) {
+          if (prev_is_high_surrogate) {
+            throw "two high surrogates in sequence";
+          } else {
+            prev_is_high_surrogate = true;
+          }
+        } else if (code_point >= 0xDC00 && code_point <= 0xDFFF) {
+          if (prev_is_high_surrogate) {
+            prev_is_high_surrogate = false;
+          } else {
+            throw "low surrogate without preceeding high surrogate"
+          }
+        }
+      }
+
+    } else if (value === Infinity || value === -Infinity || Object.is(value, -0.0)) {
       throw "invalid numer!"
     }
     return value;
@@ -52,7 +72,8 @@ function handle_dir(dir, out) {
     async.eachLimit(files, 32, (file, cb) => {
       fs.readFile(path.join(dir, file), (err, data) => {
         try {
-          const data_str = data.toString();
+          const data_str = new TextDecoder('utf-8', { fatal: true }).decode(data);
+
           const enc = encode_signing(decode(data_str));
           const l = length(enc);
           const h = hash(enc);
