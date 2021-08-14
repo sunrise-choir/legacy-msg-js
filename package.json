@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "AGPL-3.0",
+  "license": "LGPL-3.0",
   "dependencies": {
     "async": "^2.6.1"
   }
